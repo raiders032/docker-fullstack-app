@@ -1,0 +1,28 @@
+laguage: generic
+
+sudo: required
+
+# 앱을 도커 환경에서 실행하기 떄문에  Travis CI에게 도커 환경으로 만들라고 명시
+services:
+  - docker
+
+# 도커 환경에서 dockerfile.dev를 이용해서 도커 이미지를 생성
+before_install:
+  - docker build -t neptunes032/react-test-app -f ./frontend/Dockerfile.dev ./frontend
+
+#생성된 이미지를 이용해서 테스트를 수행
+script:
+  - docker run -e CI=true neptunes032/react-test-app npm run test
+
+after_success:
+  #테스트가 성공하면 각각의 프로젝트의 운영버전 이미지를 빌드한다.
+  - docker build -t neptunes032/docker-frontend ./frontend
+  - docker build -t neptunes032/docker-backend ./backend
+  - docker build -t neptunes032/docker-nginx ./nginx
+  #도커 허브에 빌드 된 파일을 넣어주기 위해 도커 허브에 로그인
+  - echo "$DOCKER_HUB_PASSWORD" | docker login -u "$DOCKER_HUB_ID" --password-stdin
+  #빌드된 이미지를 도커허브에 업로드
+  - docker push neptunes032/docker-frontend
+  - docker push neptunes032/docker-backend
+  - docker push neptunes032/docker-nginx
+  #AWS Elasitc beanstalk가 업데이트 된 빌드 이미지를 가져와 배포할 수 있도록 설정
